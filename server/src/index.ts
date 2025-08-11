@@ -6,11 +6,11 @@ import morgan from 'morgan';
 import http from 'http';
 import { Server } from 'socket.io';
 import { PrismaClient } from '@prisma/client';
-import { router as authRouter } from './routes/auth.js';
-import { router as deviceRouter } from './routes/devices.js';
-import { router as tagRouter } from './routes/tags.js';
-import { router as alarmRouter } from './routes/alarms.js';
-import { initConnectors, startMockStreaming } from './services/connectors/index.js';
+import { router as authRouter } from './routes/auth';
+import { router as deviceRouter } from './routes/devices';
+import { router as tagRouter } from './routes/tags';
+import { router as alarmRouter } from './routes/alarms';
+import { initConnectors, startMockStreaming } from './services/connectors/index';
 
 const prisma = new PrismaClient();
 

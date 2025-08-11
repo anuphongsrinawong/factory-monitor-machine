@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { api, setAuthToken } from './http';
-import jwtDecode from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode';
 
 type User = { id: number; name: string; email: string; role: 'ADMIN'|'ENGINEER'|'VIEWER' };
 

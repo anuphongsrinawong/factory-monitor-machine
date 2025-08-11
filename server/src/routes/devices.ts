@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { PrismaClient, DeviceType } from '@prisma/client';
-import { requireRole } from './auth.js';
+import { requireRole } from './auth';
 
 export const router = Router();
 
