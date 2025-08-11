@@ -4,6 +4,7 @@ import { Dashboard } from './Dashboard';
 import { Mapping } from './Mapping';
 import { Alarms } from './Alarms';
 import { Machines } from './Machines';
+import { MachineDetail } from './MachineDetail';
 import { Login } from './Login';
 import { AuthProvider, useAuth } from '../utils/auth';
 
@@ -33,6 +34,7 @@ function Shell() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/mapping" element={<Mapping />} />
           <Route path="/machines" element={<Machines />} />
+          <Route path="/machines/:id" element={<MachineDetail />} />
           <Route path="/alarms" element={<Alarms />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
