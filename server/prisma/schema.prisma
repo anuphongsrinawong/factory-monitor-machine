@@ -56,7 +56,7 @@ enum ConnectionProtocol {
 
 model Tag {
   id          Int        @id @default(autoincrement())
-  device      Device     @relation(fields: [deviceId], references: [id])
+  device      Device     @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   deviceId    Int
   name        String
   address     String
@@ -83,7 +83,7 @@ enum AccessType {
 
 model Alarm {
   id           Int       @id @default(autoincrement())
-  device       Device    @relation(fields: [deviceId], references: [id])
+  device       Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   deviceId     Int
   code         String
   message      String
@@ -100,7 +100,7 @@ enum AlarmSeverity {
 
 model TagValueHistory {
   id        Int      @id @default(autoincrement())
-  tag       Tag      @relation(fields: [tagId], references: [id])
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
   tagId     Int
   value     String
   createdAt DateTime @default(now())

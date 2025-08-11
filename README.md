@@ -199,7 +199,7 @@ git init
 git add .
 git commit -m "feat: initial production-ready starter for factory monitor"
 git branch -M main
-git remote add origin https://github.com/<your-org>/<your-repo>.git
+git remote add origin https://github.com/anuphongsrinawong/factory-monitor-machine.git
 git push -u origin main
 ```
 

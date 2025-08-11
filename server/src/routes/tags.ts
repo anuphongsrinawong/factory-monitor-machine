@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { PrismaClient, AccessType, DataType } from '@prisma/client';
 import { requireRole } from './auth';
+import { readLatestValue, writeViaConnector, bulkWriteViaConnector } from '../services/connectors/index';
 
 export const router = Router();
 
@@ -41,9 +42,8 @@ router.get('/:id/value', async (req, res) => {
   const id = Number(req.params.id);
   const tag = await prisma.tag.findUnique({ where: { id } });
   if (!tag) return res.status(404).json({ message: 'Not found' });
-  // For demo, value from history last record
-  const last = await prisma.tagValueHistory.findFirst({ where: { tagId: id }, orderBy: { createdAt: 'desc' } });
-  res.json({ tagId: id, value: last?.value ?? null, at: last?.createdAt ?? null });
+  const last = await readLatestValue(prisma, id);
+  res.json({ tagId: id, value: last.value, at: last.at });
 });
 
 router.post('/:id/write', requireRole(['ADMIN', 'ENGINEER']), async (req, res) => {
@@ -54,10 +54,7 @@ router.post('/:id/write', requireRole(['ADMIN', 'ENGINEER']), async (req, res) =
   const tag = await prisma.tag.findUnique({ where: { id } });
   if (!tag) return res.status(404).json({ message: 'Not found' });
 
-  // TODO: route to connector by device
-  // For mock, just store value and emit
-  await prisma.tagValueHistory.create({ data: { tagId: id, value: String(value) } });
-  io.emit('tag:update', { tagId: id, value });
+  await writeViaConnector(prisma, io, id, value);
   res.json({ ok: true });
 });
 
@@ -67,18 +64,7 @@ router.post('/bulk/write', requireRole(['ADMIN', 'ENGINEER']), async (req, res) 
   const io = req.app.get('io');
   const body = req.body as Array<{ tagId: number; value: unknown }>;
   if (!Array.isArray(body) || body.length === 0) return res.status(400).json({ message: 'Invalid payload' });
-  const results: Array<{ tagId: number; ok: boolean; error?: string }> = [];
-  for (const item of body) {
-    try {
-      const tag = await prisma.tag.findUnique({ where: { id: item.tagId } });
-      if (!tag) { results.push({ tagId: item.tagId, ok: false, error: 'Tag not found' }); continue; }
-      await prisma.tagValueHistory.create({ data: { tagId: item.tagId, value: String(item.value) } });
-      io.emit('tag:update', { tagId: item.tagId, value: item.value });
-      results.push({ tagId: item.tagId, ok: true });
-    } catch (e: any) {
-      results.push({ tagId: item.tagId, ok: false, error: e?.message ?? 'Write failed' });
-    }
-  }
-  res.json({ results });
+  await bulkWriteViaConnector(prisma, io, body);
+  res.json({ ok: true });
 });
 
