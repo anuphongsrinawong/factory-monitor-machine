@@ -29,6 +29,11 @@ model Device {
   type        DeviceType
   status      String      @default("OFFLINE")
   lastSeenAt  DateTime?
+  protocol    ConnectionProtocol?
+  host        String?
+  port        Int?
+  enabled     Boolean    @default(true)
+  settings    Json?
   tags        Tag[]
   alarms      Alarm[]
   createdAt   DateTime   @default(now())
@@ -39,6 +44,14 @@ enum DeviceType {
   KUKA
   MITSUBISHI
   OTHER
+}
+
+enum ConnectionProtocol {
+  SIM
+  OPCUA
+  MC
+  KUKA_KRL
+  MQTT
 }
 
 model Tag {

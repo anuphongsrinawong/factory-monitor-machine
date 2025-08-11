@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { PrismaClient, DeviceType } from '@prisma/client';
+import { PrismaClient, DeviceType, ConnectionProtocol } from '@prisma/client';
 import { requireRole } from './auth';
 
 export const router = Router();
@@ -12,8 +12,10 @@ router.get('/', async (req, res) => {
 
 router.post('/', requireRole(['ADMIN', 'ENGINEER']), async (req, res) => {
   const prisma = req.app.get('prisma') as PrismaClient;
-  const { name, type } = req.body as { name: string; type: DeviceType };
-  const device = await prisma.device.create({ data: { name, type } });
+  const { name, type, protocol, host, port, enabled, settings } = req.body as {
+    name: string; type: DeviceType; protocol?: ConnectionProtocol; host?: string; port?: number; enabled?: boolean; settings?: unknown;
+  };
+  const device = await prisma.device.create({ data: { name, type, protocol, host, port, enabled: enabled ?? true, settings: settings as any } });
   res.status(201).json(device);
 });
 

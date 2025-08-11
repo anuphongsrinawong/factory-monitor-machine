@@ -61,3 +61,24 @@ router.post('/:id/write', requireRole(['ADMIN', 'ENGINEER']), async (req, res) =
   res.json({ ok: true });
 });
 
+// Bulk write: [{ tagId, value }]
+router.post('/bulk/write', requireRole(['ADMIN', 'ENGINEER']), async (req, res) => {
+  const prisma = req.app.get('prisma') as PrismaClient;
+  const io = req.app.get('io');
+  const body = req.body as Array<{ tagId: number; value: unknown }>;
+  if (!Array.isArray(body) || body.length === 0) return res.status(400).json({ message: 'Invalid payload' });
+  const results: Array<{ tagId: number; ok: boolean; error?: string }> = [];
+  for (const item of body) {
+    try {
+      const tag = await prisma.tag.findUnique({ where: { id: item.tagId } });
+      if (!tag) { results.push({ tagId: item.tagId, ok: false, error: 'Tag not found' }); continue; }
+      await prisma.tagValueHistory.create({ data: { tagId: item.tagId, value: String(item.value) } });
+      io.emit('tag:update', { tagId: item.tagId, value: item.value });
+      results.push({ tagId: item.tagId, ok: true });
+    } catch (e: any) {
+      results.push({ tagId: item.tagId, ok: false, error: e?.message ?? 'Write failed' });
+    }
+  }
+  res.json({ results });
+});
+
