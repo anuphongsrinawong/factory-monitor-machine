@@ -9,6 +9,8 @@ export function Machines() {
   const canManage = user?.role === 'ADMIN' || user?.role === 'ENGINEER';
   const [devices, setDevices] = useState<Device[]>([]);
   const [editing, setEditing] = useState<Device | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [newDev, setNewDev] = useState<{ name: string; type: string; protocol?: string; host?: string; port?: number }>({ name: '', type: 'OTHER' });
   const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
@@ -23,6 +25,43 @@ export function Machines() {
       <h1 className="text-3xl font-bold text-slate-800 mb-4">Manage Machines</h1>
       <div className="bg-white border rounded-xl shadow">
         <div className="p-4">
+          {canManage && (
+            <div className="mb-4 border rounded p-3">
+              <h3 className="font-semibold mb-2">Add Machine</h3>
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+                <input className="border rounded p-2" placeholder="Name" value={newDev.name} onChange={e => setNewDev({ ...newDev, name: e.target.value })} />
+                <select className="border rounded p-2" value={newDev.type} onChange={e => setNewDev({ ...newDev, type: e.target.value })}>
+                  <option value="KUKA">KUKA</option>
+                  <option value="MITSUBISHI">MITSUBISHI</option>
+                  <option value="OTHER">OTHER</option>
+                </select>
+                <select className="border rounded p-2" value={newDev.protocol ?? 'SIM'} onChange={e => setNewDev({ ...newDev, protocol: e.target.value })}>
+                  <option value="SIM">SIM</option>
+                  <option value="OPCUA">OPCUA</option>
+                  <option value="MC">MC</option>
+                  <option value="KUKA_KRL">KUKA_KRL</option>
+                  <option value="MQTT">MQTT</option>
+                </select>
+                <input className="border rounded p-2" placeholder="Host/IP" value={newDev.host ?? ''} onChange={e => setNewDev({ ...newDev, host: e.target.value })} />
+                <input className="border rounded p-2" placeholder="Port" value={newDev.port ?? ''} onChange={e => setNewDev({ ...newDev, port: Number(e.target.value) || undefined })} />
+              </div>
+              <div className="mt-2">
+                <button
+                  disabled={creating || !newDev.name}
+                  className="bg-blue-600 text-white px-3 py-2 rounded disabled:opacity-50"
+                  onClick={async () => {
+                    try {
+                      setCreating(true); setError(null);
+                      await api.post('/devices', { name: newDev.name, type: newDev.type, protocol: newDev.protocol, host: newDev.host, port: newDev.port });
+                      setNewDev({ name: '', type: 'OTHER' });
+                      refresh();
+                    } catch (e: any) {
+                      setError(e?.response?.data?.message ?? 'สร้างไม่สำเร็จ');
+                    } finally { setCreating(false); }
+                  }}>บันทึก</button>
+              </div>
+            </div>
+          )}
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-100">
               <tr>
