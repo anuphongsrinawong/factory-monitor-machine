@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom';
 import { Dashboard } from './Dashboard';
 import { Mapping } from './Mapping';
 import { Alarms } from './Alarms';
+import { Machines } from './Machines';
 import { Login } from './Login';
 import { AuthProvider, useAuth } from '../utils/auth';
 
@@ -17,6 +18,7 @@ function Shell() {
         </div>
         <nav className="flex-grow">
           <Link to="/" className="block px-6 py-4 hover:bg-slate-700">Dashboard</Link>
+          <Link to="/machines" className="block px-6 py-4 hover:bg-slate-700">Manage Machines</Link>
           <Link to="/mapping" className="block px-6 py-4 hover:bg-slate-700">Data Mapping</Link>
           <Link to="/alarms" className="block px-6 py-4 hover:bg-slate-700">Alarm History</Link>
         </nav>
@@ -30,6 +32,7 @@ function Shell() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/mapping" element={<Mapping />} />
+          <Route path="/machines" element={<Machines />} />
           <Route path="/alarms" element={<Alarms />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>

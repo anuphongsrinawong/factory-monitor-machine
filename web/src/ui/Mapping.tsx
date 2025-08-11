@@ -135,6 +135,19 @@ export function Mapping() {
                           const v = (t as any).writeValue ?? '';
                           await api.post(`/tags/${t.id}/write`, { value: v });
                         }}>Write</button>
+                        <button className="px-2 py-1 border rounded" onClick={async () => {
+                          const newName = prompt('แก้ไขชื่อแท็ก', t.name) ?? t.name;
+                          const newAddr = prompt('แก้ไข Address', t.address) ?? t.address;
+                          await api.patch(`/tags/${t.id}`, { name: newName, address: newAddr });
+                          const r = await api.get('/tags', { params: { deviceId: t.deviceId } });
+                          setTags(r.data);
+                        }}>Edit</button>
+                        <button className="px-2 py-1 border rounded text-red-600" onClick={async () => {
+                          if (!confirm(`ลบแท็ก ${t.name}?`)) return;
+                          await api.delete(`/tags/${t.id}`);
+                          const r = await api.get('/tags', { params: { deviceId: t.deviceId } });
+                          setTags(r.data);
+                        }}>Delete</button>
                       </div>
                     </td>
                   )}
