@@ -10,6 +10,14 @@ router.get('/', async (req, res) => {
   res.json(devices);
 });
 
+router.get('/:id', async (req, res) => {
+  const prisma = req.app.get('prisma') as PrismaClient;
+  const id = Number(req.params.id);
+  const device = await prisma.device.findUnique({ where: { id }, include: { tags: true } });
+  if (!device) return res.status(404).json({ message: 'Not found' });
+  res.json(device);
+});
+
 router.post('/', requireRole(['ADMIN', 'ENGINEER']), async (req, res) => {
   const prisma = req.app.get('prisma') as PrismaClient;
   const { name, type, protocol, host, port, enabled, settings } = req.body as {

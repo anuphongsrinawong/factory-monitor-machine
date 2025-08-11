@@ -11,14 +11,16 @@ import { router as deviceRouter } from './routes/devices';
 import { router as tagRouter } from './routes/tags';
 import { router as alarmRouter } from './routes/alarms';
 import { initConnectors, startMockStreaming } from './services/connectors/index';
+import rateLimit from 'express-rate-limit';
 
 const prisma = new PrismaClient();
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: process.env.CORS_ORIGIN?.split(',') || '*', credentials: true }));
 app.use(helmet());
 app.use(express.json());
 app.use(morgan('dev'));
+app.use(rateLimit({ windowMs: 60_000, max: 600 }));
 
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
@@ -33,6 +35,13 @@ app.use('/api/alarms', alarmRouter);
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true });
+});
+
+// Global error handler
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error(err);
+  res.status(err?.status || 500).json({ message: err?.message || 'Internal Server Error' });
 });
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3001;
