@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../utils/http';
 import { useAuth } from '../utils/auth';
+import { io, Socket } from 'socket.io-client';
 
 type Tag = { id: number; deviceId: number; name: string; address: string; dataType: string; access: string };
-type Device = { id: number; name: string; type: string; status: string; protocol?: string; host?: string; port?: number; enabled?: boolean; tags: Tag[] };
+type Device = { id: number; name: string; type: string; status: string; protocol?: string; host?: string; port?: number; enabled?: boolean; settings?: any; tags: Tag[] };
 
 export function MachineDetail() {
   const { id } = useParams();
@@ -14,6 +15,9 @@ export function MachineDetail() {
   const [device, setDevice] = useState<Device | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [newTag, setNewTag] = useState<{ name: string; address: string; dataType: string; access: string }>({ name: '', address: '', dataType: 'STRING', access: 'READ' });
+  const [values, setValues] = useState<Record<number, { value: string | null; at: string | null }>>({});
+  const [dragEnabled, setDragEnabled] = useState(false);
+  const [order, setOrder] = useState<number[]>([]);
 
   async function refresh() {
     const r = await api.get(`/devices/${deviceId}`);
@@ -21,6 +25,54 @@ export function MachineDetail() {
   }
 
   useEffect(() => { refresh(); }, [deviceId]);
+
+  // Load current values and subscribe socket
+  useEffect(() => {
+    if (!device) return;
+    (async () => {
+      const entries = await Promise.all(
+        device.tags.map(async t => {
+          try {
+            const v = await api.get(`/tags/${t.id}/value`);
+            return [t.id, { value: v.data.value ?? null, at: v.data.at ?? null }] as const;
+          } catch {
+            return [t.id, { value: null, at: null }] as const;
+          }
+        })
+      );
+      const map: Record<number, { value: string | null; at: string | null }> = {};
+      for (const [k, v] of entries) map[k] = v;
+      setValues(map);
+    })();
+
+    const socket: Socket = io(import.meta.env.VITE_API_WS || 'http://localhost:3001');
+    const handler = (msg: { tagId: number; value: string }) => {
+      setValues(prev => ({ ...prev, [msg.tagId]: { value: String(msg.value), at: new Date().toISOString() } }));
+    };
+    socket.on('tag:update', handler);
+    return () => socket.off('tag:update', handler).close();
+  }, [device?.id]);
+
+  // Compute order and sorted tags
+  useEffect(() => {
+    if (!device) return;
+    const saved = device.settings?.tagOrder as number[] | undefined;
+    if (saved && Array.isArray(saved) && saved.length > 0) setOrder(saved);
+    else setOrder(device.tags.map(t => t.id));
+  }, [device?.id]);
+
+  const tagsSorted: Tag[] = useMemo(() => {
+    if (!device) return [];
+    const idToTag = new Map(device.tags.map(t => [t.id, t] as const));
+    const ordered: Tag[] = [];
+    for (const id of order) {
+      const t = idToTag.get(id);
+      if (t) ordered.push(t);
+    }
+    // include any new tags not in order
+    for (const t of device.tags) if (!order.includes(t.id)) ordered.push(t);
+    return ordered;
+  }, [device?.tags, order]);
 
   if (!device) return <div className="text-slate-600">Loading...</div>;
 
@@ -80,42 +132,66 @@ export function MachineDetail() {
             </div>
           )}
         </div>
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-100">
-            <tr>
-              <th className="p-2">Name</th>
-              <th className="p-2">Address</th>
-              <th className="p-2">Type</th>
-              <th className="p-2">Access</th>
-              {canManage && <th className="p-2">Actions</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {device.tags.map(t => (
-              <tr key={t.id} className="border-b">
-                <td className="p-2">{t.name}</td>
-                <td className="p-2 font-mono">{t.address}</td>
-                <td className="p-2">{t.dataType}</td>
-                <td className="p-2">{t.access}</td>
-                {canManage && (
-                  <td className="p-2 flex gap-2">
-                    <button className="px-2 py-1 border rounded" onClick={async () => {
-                      const name = prompt('แก้ชื่อ', t.name) ?? t.name;
-                      const address = prompt('แก้ Address', t.address) ?? t.address;
-                      await api.patch(`/tags/${t.id}`, { name, address });
-                      refresh();
-                    }}>Edit</button>
-                    <button className="px-2 py-1 border rounded text-red-600" onClick={async () => {
-                      if (!confirm(`ลบแท็ก ${t.name}?`)) return;
-                      await api.delete(`/tags/${t.id}`);
-                      refresh();
-                    }}>Delete</button>
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-sm text-slate-500">ลากการ์ดเพื่อจัด Layout ตามต้องการ</div>
+          {canManage && (
+            <div className="flex gap-2">
+              <button className={`px-3 py-2 border rounded ${dragEnabled ? 'bg-slate-800 text-white' : ''}`} onClick={() => setDragEnabled(!dragEnabled)}>{dragEnabled ? 'กำลังจัดวาง' : 'แก้ไข Layout'}</button>
+              <button className="px-3 py-2 border rounded" onClick={() => setOrder(device.tags.map(t => t.id))}>รีเซ็ต</button>
+              <button className="bg-blue-600 text-white px-3 py-2 rounded" onClick={async () => {
+                await api.patch(`/devices/${device.id}`, { settings: { ...(device.settings || {}), tagOrder: order } });
+                refresh();
+              }}>บันทึก Layout</button>
+            </div>
+          )}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {tagsSorted.map(t => (
+            <div
+              key={t.id}
+              draggable={dragEnabled}
+              onDragStart={(e) => { e.dataTransfer.setData('text/plain', String(t.id)); }}
+              onDragOver={(e) => { if (dragEnabled) e.preventDefault(); }}
+              onDrop={(e) => {
+                if (!dragEnabled) return;
+                const fromId = Number(e.dataTransfer.getData('text/plain'));
+                const toId = t.id;
+                if (!fromId || fromId === toId) return;
+                const newOrder = [...order];
+                const i = newOrder.indexOf(fromId);
+                const j = newOrder.indexOf(toId);
+                if (i >= 0 && j >= 0) {
+                  [newOrder[i], newOrder[j]] = [newOrder[j], newOrder[i]];
+                  setOrder(newOrder);
+                }
+              }}
+              className={`border rounded-lg p-3 bg-white shadow ${dragEnabled ? 'cursor-move ring-1 ring-dashed' : ''}`}
+              title={dragEnabled ? 'ลากเพื่อสลับตำแหน่ง' : ''}
+           >
+              <div className="flex items-center justify-between mb-1">
+                <div className="font-semibold">{t.name}</div>
+                <div className="text-xs text-slate-500">{t.dataType}</div>
+              </div>
+              <div className="text-xl font-mono">{values[t.id]?.value ?? '-'}</div>
+              <div className="text-xs text-slate-400">{values[t.id]?.at ? new Date(values[t.id]!.at as string).toLocaleString() : ''}</div>
+              {canManage && (
+                <div className="mt-2 flex gap-2">
+                  <button className="px-2 py-1 border rounded" onClick={async () => {
+                    const name = prompt('แก้ชื่อ', t.name) ?? t.name;
+                    const address = prompt('แก้ Address', t.address) ?? t.address;
+                    await api.patch(`/tags/${t.id}`, { name, address });
+                    refresh();
+                  }}>Edit</button>
+                  <button className="px-2 py-1 border rounded text-red-600" onClick={async () => {
+                    if (!confirm(`ลบแท็ก ${t.name}?`)) return;
+                    await api.delete(`/tags/${t.id}`);
+                    refresh();
+                  }}>Delete</button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
