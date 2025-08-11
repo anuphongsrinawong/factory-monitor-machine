@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String
+  password  String
+  role      Role     @default(VIEWER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  ADMIN
+  ENGINEER
+  VIEWER
+}
+
+model Device {
+  id          Int        @id @default(autoincrement())
+  name        String
+  type        DeviceType
+  status      String      @default("OFFLINE")
+  lastSeenAt  DateTime?
+  tags        Tag[]
+  alarms      Alarm[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+enum DeviceType {
+  KUKA
+  MITSUBISHI
+  OTHER
+}
+
+model Tag {
+  id          Int        @id @default(autoincrement())
+  device      Device     @relation(fields: [deviceId], references: [id])
+  deviceId    Int
+  name        String
+  address     String
+  dataType    DataType
+  access      AccessType
+  description String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  histories   TagValueHistory[]
+}
+
+enum DataType {
+  BOOL
+  INT
+  REAL
+  STRING
+}
+
+enum AccessType {
+  READ
+  WRITE
+  READ_WRITE
+}
+
+model Alarm {
+  id           Int       @id @default(autoincrement())
+  device       Device    @relation(fields: [deviceId], references: [id])
+  deviceId     Int
+  code         String
+  message      String
+  severity     AlarmSeverity @default(INFO)
+  occurredAt   DateTime   @default(now())
+  clearedAt    DateTime?
+}
+
+enum AlarmSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+model TagValueHistory {
+  id        Int      @id @default(autoincrement())
+  tag       Tag      @relation(fields: [tagId], references: [id])
+  tagId     Int
+  value     String
+  createdAt DateTime @default(now())
+}
+
