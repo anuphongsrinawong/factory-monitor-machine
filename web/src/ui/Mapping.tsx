@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { api } from '../utils/http';
+import { io, Socket } from 'socket.io-client';
 import { useAuth } from '../utils/auth';
 
 type Device = { id: number; name: string };
@@ -10,6 +11,7 @@ export function Mapping() {
   const [devices, setDevices] = useState<DeviceDetail[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [values, setValues] = useState<Record<number, { value: string | null; at: string | null }>>({});
   const { user } = useAuth();
   const canManage = user?.role === 'ADMIN' || user?.role === 'ENGINEER';
 
@@ -25,8 +27,37 @@ export function Mapping() {
   }, []);
 
   useEffect(() => {
-    if (selected) api.get('/tags', { params: { deviceId: selected } }).then(r => setTags(r.data));
+    if (selected) {
+      api.get('/tags', { params: { deviceId: selected } }).then(async r => {
+        const list: Tag[] = r.data;
+        setTags(list);
+        // fetch current values
+        const entries = await Promise.all(
+          list.map(async t => {
+            try {
+              const v = await api.get(`/tags/${t.id}/value`);
+              return [t.id, { value: v.data.value ?? null, at: v.data.at ?? null }] as const;
+            } catch {
+              return [t.id, { value: null, at: null }] as const;
+            }
+          })
+        );
+        const map: Record<number, { value: string | null; at: string | null }> = {};
+        for (const [k, v] of entries) map[k] = v;
+        setValues(map);
+      });
+    }
   }, [selected]);
+
+  // socket live updates
+  useEffect(() => {
+    const socket: Socket = io(import.meta.env.VITE_API_WS || 'http://localhost:3001');
+    const handler = (msg: { tagId: number; value: string }) => {
+      setValues(prev => ({ ...prev, [msg.tagId]: { value: String(msg.value), at: new Date().toISOString() } }));
+    };
+    socket.on('tag:update', handler);
+    return () => socket.off('tag:update', handler).close();
+  }, []);
 
   return (
     <div>
@@ -113,6 +144,7 @@ export function Mapping() {
               <tr>
                 <th className="p-2">Tag Name</th>
                 <th className="p-2">Address</th>
+                <th className="p-2">Value</th>
                 <th className="p-2">Data Type</th>
                 <th className="p-2">Access</th>
                 {canManage && <th className="p-2">Write</th>}
@@ -123,6 +155,7 @@ export function Mapping() {
                 <tr key={t.id} className="border-b">
                   <td className="p-2 font-semibold">{t.name}</td>
                   <td className="p-2 font-mono">{t.address}</td>
+                  <td className="p-2 font-mono">{values[t.id]?.value ?? '-'}</td>
                   <td className="p-2">{t.dataType}</td>
                   <td className="p-2">{t.access}</td>
                   {canManage && (
