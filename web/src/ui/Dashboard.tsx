@@ -5,7 +5,7 @@ import { useAuth } from '../utils/auth';
 import { Link } from 'react-router-dom';
 
 type Tag = { id: number; name: string };
-type Device = { id: number; name: string; type: string; status: string; tags?: Tag[] };
+type Device = { id: number; name: string; type: string; status: string; lastSeenAt?: string | null; tags?: Tag[] };
 type TagUpdate = { tagId: number; value: string };
 
 export function Dashboard() {
@@ -53,21 +53,9 @@ export function Dashboard() {
               <h2 className="text-lg font-bold">{d.name}</h2>
               <span className={`text-sm font-semibold ${d.status === 'ONLINE' ? 'text-green-600' : 'text-red-600'}`}>{d.status}</span>
             </div>
-            <div className="p-4 text-sm text-slate-600 space-y-2">
-              <div>ประเภท: {d.type}</div>
-              {(d.tags && d.tags.length > 0) ? (
-                <div>
-                  <div className="font-semibold mb-1">Tag Values</div>
-                  <ul className="text-slate-700">
-                    {d.tags.slice(0, 3).map(t => (
-                      <li key={t.id} className="flex justify-between gap-3"><span>{t.name}</span><span className="font-mono">{values[t.id] ?? '-'}</span></li>
-                    ))}
-                    {d.tags.length > 3 && <li className="text-slate-400">+{d.tags.length - 3} more…</li>}
-                  </ul>
-                </div>
-              ) : (
-                <div className="text-slate-400">No tags configured</div>
-              )}
+            <div className="p-4 text-sm text-slate-700 space-y-1">
+              <div className="flex justify-between"><span className="text-slate-500">Status:</span><span className={`${d.status === 'ONLINE' ? 'text-green-600' : 'text-red-600'} font-semibold`}>{d.status === 'ONLINE' ? 'Online' : 'Disconnected'}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Last Seen:</span><span className="font-mono">{d.lastSeenAt ? new Date(d.lastSeenAt).toLocaleString() : '-'}</span></div>
             </div>
           </Link>
         ))}
